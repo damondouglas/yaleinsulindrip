@@ -15,6 +15,8 @@ Accessed 06/28/2017>
 """
 import Algorithmia
 
+INCREMENT=0.5
+
 def apply(input):
     """
     Method called by algorithmia platform
@@ -70,7 +72,117 @@ def compute_initial(bg):
     (float)
     """
 
-    return round_nearest(bg/100, 0.5)
+    return round_nearest(bg/100, INCREMENT)
+
+def _infusion_change_matrix(current_rate, delta_value):
+    return [
+        [(0, current_rate + 2 * delta_value)],
+        [(0, current_rate + delta_value)],
+        [(0, current_rate)],
+        [(0, current_rate - delta_value)],
+        [(0, 0), (30, current_rate - 2 * delta_value)]
+    ]
+
+def compute_insulin_case_bg_gt_200(current_rate, hourly_bg_change):
+    """
+    """
+    delta_value = delta(current_rate)
+
+    if hourly_bg_change > 0:
+        return _infusion_change_matrix(current_rate, delta_value)[0]
+    
+    if hourly_bg_change >= -20 and hourly_bg_change <= 0:
+        return _infusion_change_matrix(current_rate, delta_value)[1]
+
+    if hourly_bg_change >= -60 and hourly_bg_change <= -21:
+        return _infusion_change_matrix(current_rate, delta_value)[2]
+
+    if hourly_bg_change >= -80 and hourly_bg_change <= -61:
+        return _infusion_change_matrix(current_rate, delta_value)[3]
+    
+    if hourly_bg_change < -80:
+        return _infusion_change_matrix(current_rate, delta_value)[4]
+
+def compute_insulin_case_bg_btwn_160_199(current_rate, hourly_bg_change):
+    """
+    """
+    delta_value = delta(current_rate)
+
+    if hourly_bg_change > 60:
+        return _infusion_change_matrix(current_rate, delta_value)[0]
+    
+    if hourly_bg_change >= 0 and hourly_bg_change <= 60:
+        return _infusion_change_matrix(current_rate, delta_value)[1]
+
+    if hourly_bg_change >= -40 and hourly_bg_change <= -1:
+        return _infusion_change_matrix(current_rate, delta_value)[2]
+
+    if hourly_bg_change >= -60 and hourly_bg_change <= -41:
+        return _infusion_change_matrix(current_rate, delta_value)[3]
+    
+    if hourly_bg_change < -60:
+        return _infusion_change_matrix(current_rate, delta_value)[4]
+
+def compute_insulin_case_bg_btwn_120_159(current_rate, hourly_bg_change):
+    """
+    """
+    delta_value = delta(current_rate)
+
+    if hourly_bg_change > 40:
+        return _infusion_change_matrix(current_rate, delta_value)[1]
+
+    if hourly_bg_change >= -20 and hourly_bg_change <= 40: 
+        return _infusion_change_matrix(current_rate, delta_value)[2]
+
+    if hourly_bg_change >= -40 and hourly_bg_change <= -21:
+        return _infusion_change_matrix(current_rate, delta_value)[3]
+    
+    if hourly_bg_change < -40:
+        return _infusion_change_matrix(current_rate, delta_value)[4]
+
+def compute_insulin_case_bg_btwn_100_119(current_rate, hourly_bg_change):
+    """
+    """
+    delta_value = delta(current_rate)
+
+    if hourly_bg_change >0: 
+        return _infusion_change_matrix(current_rate, delta_value)[2]
+
+    if hourly_bg_change >= -20 and hourly_bg_change <= 0:
+        return _infusion_change_matrix(current_rate, delta_value)[3]
+    
+    if hourly_bg_change < -20:
+        return _infusion_change_matrix(current_rate, delta_value)[4]
+
+
+def delta(current_rate):
+    if current_rate < 3:
+        return INCREMENT
+    
+    if current_rate >= 3 and current_rate <= 6:
+        return INCREMENT * 2
+    
+    if current_rate >= 6.5 and current_rate <= 9.5:
+        return INCREMENT * 3
+    
+    if current_rate >= 10 and current_rate <= 14.5:
+        return INCREMENT * 4
+
+    if current_rate >= 15 and current_rate <= 19.5:
+        return INCREMENT * 6
+    
+    if current_rate >= 20:
+        return INCREMENT * 8
+
+def compute_hourly_bg_change(current_bg, previous_bg):
+    """
+    """
+    if (type(current_bg) != tuple or type(previous_bg) != tuple):
+        raise TypeError("current_bg and previous_bg must be tuple")
+    
+    timediff_in_hour = abs(current_bg[1] - previous_bg[1]) / 60
+
+    return int((current_bg[0] - previous_bg[0]) / timediff_in_hour)
 
 def notes():
     return """
