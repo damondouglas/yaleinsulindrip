@@ -1,8 +1,12 @@
 """
 Implementation of yale insulin infusion (YII) protocol.
 
+Note snomed codes used below:
 325064004  Insulin soluble human 100units/mL injection solution 10mL vial (product)
 258666001  Unit
+258949000  Unit/hour
+255560000  Intravenous
+166888009  Blood glucose method
 
 Reference:
 Shetty S, Inzucchi SE, Goldberg PA, Cooper D, Siegel MD, Honiden S.
@@ -28,14 +32,60 @@ def apply(input):
     show_notes
 
     """
-    required_params = ['current_rate', 'current_bg', 'consecutive_bg_in_target_count', 'hourly_bg_change', 'show_notes']
+    required_params = ['current_bg']
     for key in required_params:
         if key not in input:
             raise AlgorithmError("required params: " + required_params)
 
+    current_bg = input['current_bg']
+
     response = {}
     if input['show_notes']:
         response['notes'] = notes()
+    
+    if not input['current_rate']:
+        dose = compute_initial_insulin(current_bg)
+        return {
+            'bolus': {
+                'product': 325064004,
+                'frequency': 'once',
+                'dose': dose,
+                'uom': 258666001,
+                'route': 255560000  
+            },
+            'infusion': {
+                'product': 325064004,
+                'rate': dose,
+                'uom': 258949000, 
+                'route': 255560000  
+            },
+            'current_bg': current_bg,
+            'at_target_bg': is_blood_glucose_target(current_bg),
+            'next_bg_check': compute_next_bg_check_time(current_bg, 0)
+        }
+
+    else:
+        required_params = ['hourly_bg_change','consecutive_bg_in_target_count']
+        for key in required_params:
+            if key not in input:
+                raise AlgorithmError("required params: " + required_params)
+        current_rate = input['current_rate']
+        consecutive_bg_in_target_count = input['consecutive_bg_in_target_count']
+        hourly_bg_change = input['hourly_bg_change']
+        dose = compute_insulin(current_rate, current_bg, hourly_bg_change) 
+
+        return {
+            'current_bg': current_bg,
+            'at_target_bg': is_blood_glucose_target(current_bg),
+            'next_bg_check': compute_next_bg_check_time(current_bg, consecutive_bg_in_target_count),
+            'infusion': {
+                'product': 325064004,
+                'rate': dose,
+                'uom': 258949000, 
+                'route': 255560000  
+            },
+        }
+    
     return response
 
 def round_nearest(x, a):
