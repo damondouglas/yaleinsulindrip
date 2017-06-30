@@ -21,8 +21,22 @@ def apply(input):
     """
     Method called by algorithmia platform
 
+    current_rate
+    current_bg
+    consecutive_bg_in_target_count
+    hourly_bg_change
+    show_notes
+
     """
-    return "hello {}".format(input)
+    required_params = ['current_rate', 'current_bg', 'consecutive_bg_in_target_count', 'hourly_bg_change', 'show_notes']
+    for key in required_params:
+        if key not in input:
+            raise AlgorithmError("required params: " + required_params)
+
+    response = {}
+    if input['show_notes']:
+        response['notes'] = notes()
+    return response
 
 def round_nearest(x, a):
     """
@@ -109,6 +123,7 @@ def compute_special_instructions(current_bg):
         """
 
 def compute_insulin(current_rate, current_bg, hourly_bg_change):
+
     if current_bg < 100:
         return compute_insulin_case_lt_100()
 
@@ -266,3 +281,12 @@ Endocr Pract. 2012;18:363-370.
 Accessed 06/28/2017>
 
     """
+
+class AlgorithmError(Exception):
+    """Define error handling class."""
+
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value).replace("\\n", "\n")
