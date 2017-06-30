@@ -40,10 +40,10 @@ def apply(input):
     current_bg = input['current_bg']
 
     response = {}
-    if input['show_notes']:
+    if 'show_notes' in input:
         response['notes'] = notes()
     
-    if not input['current_rate']:
+    if 'current_rate' not in input:
         dose = compute_initial_insulin(current_bg)
         return {
             'bolus': {
