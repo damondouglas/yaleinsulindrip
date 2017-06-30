@@ -5,11 +5,11 @@ Implementation of yale insulin infusion (YII) protocol.
 258666001  Unit
 
 Reference:
-Shetty S, Inzucchi SE, Goldberg PA, Cooper D, Siegel MD, Honiden S. 
-Adapting to the new consensus guidelines for managing hyperglycemia 
-during critical illness: The Updated Yale Insulin Infusion Protocol. 
+Shetty S, Inzucchi SE, Goldberg PA, Cooper D, Siegel MD, Honiden S.
+Adapting to the new consensus guidelines for managing hyperglycemia
+during critical illness: The Updated Yale Insulin Infusion Protocol.
 Endocr Pract. 2012;18:363-370.
-<http://inpatient.aace.com/sites/all/files/Yale_IIP_MICU120-160_2011.pdf; 
+<http://inpatient.aace.com/sites/all/files/Yale_IIP_MICU120-160_2011.pdf;
 Accessed 06/28/2017>
 
 """
@@ -58,7 +58,7 @@ def is_blood_glucose_target(bg):
     """
     return bg >= 120 and bg <= 160
 
-def compute_initial(bg):
+def compute_initial_insulin(bg):
     """
     Computes initial bolus and infusion to nearest 0.5 units/hr
     based on blood glucose level (mg/dL).
@@ -74,6 +74,56 @@ def compute_initial(bg):
 
     return round_nearest(bg/100, INCREMENT)
 
+def compute_next_bg_check_time(current_bg, consecutive_in_target_count):
+    if current_bg < 90:
+        return 15
+
+    elif is_blood_glucose_target(current_bg) and consecutive_in_target_count == 2:
+        return 2 * 60
+
+    else:
+        return 60
+
+def compute_special_instructions(current_bg):
+    if current_bg < 50:
+        return """
+        D/C INSULIN INFUSION and administer 1 amp (25 g) D50 IV;
+        recheck BG q 15 minutes until BG >= 90 mg/dL.
+        Then, recheck BG Q1H when BG >= 140,
+        wait 30 min, restart insulin infusion at 50% of most recent rate
+        """
+
+    if current_bg >= 50 and current_bg <=74:
+        return """
+        D/C INSULIN INFUSION and administer 1/2 amp (25 g) D50 IV;
+        recheck BG q 15 minutes until BG >= 90 mg/dL.
+        Then, recheck BG Q1H when BG >= 140,
+        wait 30 min, restart insulin infusion at 50% of most recent rate
+        """
+
+    if current_bg >= 75 and current_bg <= 99:
+        return """
+        Recheck BG q 15 minutes until BG >= 90 mg/dL.
+        Then, recheck BG Q1H when BG >= 140,
+        wait 30 min, restart insulin infusion at 75% of most recent rate
+        """
+
+def compute_insulin(current_rate, current_bg, hourly_bg_change):
+    if current_bg < 100:
+        return compute_insulin_case_lt_100()
+
+    if current_bg >= 100 and current_bg <= 119:
+        return compute_insulin_case_bg_btwn_100_119(current_rate, hourly_bg_change)
+
+    if current_bg >= 120 and current_bg <= 159:
+        return compute_insulin_case_bg_btwn_120_159(current_rate, hourly_bg_change)
+
+    if current_bg >= 160 and current_bg <= 199:
+        return compute_insulin_case_bg_btwn_160_199(current_rate, hourly_bg_change)
+
+    if current_bg > 200:
+        return compute_insulin_case_bg_gt_200(current_rate, hourly_bg_change)
+
 def _infusion_change_matrix(current_rate, delta_value):
     return [
         [(0, current_rate + 2 * delta_value)],
@@ -83,45 +133,23 @@ def _infusion_change_matrix(current_rate, delta_value):
         [(0, 0), (30, current_rate - 2 * delta_value)]
     ]
 
-def compute_insulin_case_bg_gt_200(current_rate, hourly_bg_change):
+def compute_insulin_case_lt_100():
+    return [(0,0)]
+
+def compute_insulin_case_bg_btwn_100_119(current_rate, hourly_bg_change):
     """
     """
     delta_value = delta(current_rate)
 
-    if hourly_bg_change > 0:
-        return _infusion_change_matrix(current_rate, delta_value)[0]
-    
+    if hourly_bg_change >0:
+        return _infusion_change_matrix(current_rate, delta_value)[2]
+
     if hourly_bg_change >= -20 and hourly_bg_change <= 0:
-        return _infusion_change_matrix(current_rate, delta_value)[1]
-
-    if hourly_bg_change >= -60 and hourly_bg_change <= -21:
-        return _infusion_change_matrix(current_rate, delta_value)[2]
-
-    if hourly_bg_change >= -80 and hourly_bg_change <= -61:
         return _infusion_change_matrix(current_rate, delta_value)[3]
-    
-    if hourly_bg_change < -80:
+
+    if hourly_bg_change < -20:
         return _infusion_change_matrix(current_rate, delta_value)[4]
 
-def compute_insulin_case_bg_btwn_160_199(current_rate, hourly_bg_change):
-    """
-    """
-    delta_value = delta(current_rate)
-
-    if hourly_bg_change > 60:
-        return _infusion_change_matrix(current_rate, delta_value)[0]
-    
-    if hourly_bg_change >= 0 and hourly_bg_change <= 60:
-        return _infusion_change_matrix(current_rate, delta_value)[1]
-
-    if hourly_bg_change >= -40 and hourly_bg_change <= -1:
-        return _infusion_change_matrix(current_rate, delta_value)[2]
-
-    if hourly_bg_change >= -60 and hourly_bg_change <= -41:
-        return _infusion_change_matrix(current_rate, delta_value)[3]
-    
-    if hourly_bg_change < -60:
-        return _infusion_change_matrix(current_rate, delta_value)[4]
 
 def compute_insulin_case_bg_btwn_120_159(current_rate, hourly_bg_change):
     """
@@ -131,46 +159,74 @@ def compute_insulin_case_bg_btwn_120_159(current_rate, hourly_bg_change):
     if hourly_bg_change > 40:
         return _infusion_change_matrix(current_rate, delta_value)[1]
 
-    if hourly_bg_change >= -20 and hourly_bg_change <= 40: 
+    if hourly_bg_change >= -20 and hourly_bg_change <= 40:
         return _infusion_change_matrix(current_rate, delta_value)[2]
 
     if hourly_bg_change >= -40 and hourly_bg_change <= -21:
         return _infusion_change_matrix(current_rate, delta_value)[3]
-    
+
     if hourly_bg_change < -40:
         return _infusion_change_matrix(current_rate, delta_value)[4]
 
-def compute_insulin_case_bg_btwn_100_119(current_rate, hourly_bg_change):
+
+def compute_insulin_case_bg_btwn_160_199(current_rate, hourly_bg_change):
     """
     """
     delta_value = delta(current_rate)
 
-    if hourly_bg_change >0: 
+    if hourly_bg_change > 60:
+        return _infusion_change_matrix(current_rate, delta_value)[0]
+
+    if hourly_bg_change >= 0 and hourly_bg_change <= 60:
+        return _infusion_change_matrix(current_rate, delta_value)[1]
+
+    if hourly_bg_change >= -40 and hourly_bg_change <= -1:
         return _infusion_change_matrix(current_rate, delta_value)[2]
 
-    if hourly_bg_change >= -20 and hourly_bg_change <= 0:
+    if hourly_bg_change >= -60 and hourly_bg_change <= -41:
         return _infusion_change_matrix(current_rate, delta_value)[3]
-    
-    if hourly_bg_change < -20:
+
+    if hourly_bg_change < -60:
+        return _infusion_change_matrix(current_rate, delta_value)[4]
+
+
+def compute_insulin_case_bg_gt_200(current_rate, hourly_bg_change):
+    """
+    """
+    delta_value = delta(current_rate)
+
+    if hourly_bg_change > 0:
+        return _infusion_change_matrix(current_rate, delta_value)[0]
+
+    if hourly_bg_change >= -20 and hourly_bg_change <= 0:
+        return _infusion_change_matrix(current_rate, delta_value)[1]
+
+    if hourly_bg_change >= -60 and hourly_bg_change <= -21:
+        return _infusion_change_matrix(current_rate, delta_value)[2]
+
+    if hourly_bg_change >= -80 and hourly_bg_change <= -61:
+        return _infusion_change_matrix(current_rate, delta_value)[3]
+
+    if hourly_bg_change < -80:
         return _infusion_change_matrix(current_rate, delta_value)[4]
 
 
 def delta(current_rate):
     if current_rate < 3:
         return INCREMENT
-    
+
     if current_rate >= 3 and current_rate <= 6:
         return INCREMENT * 2
-    
+
     if current_rate >= 6.5 and current_rate <= 9.5:
         return INCREMENT * 3
-    
+
     if current_rate >= 10 and current_rate <= 14.5:
         return INCREMENT * 4
 
     if current_rate >= 15 and current_rate <= 19.5:
         return INCREMENT * 6
-    
+
     if current_rate >= 20:
         return INCREMENT * 8
 
@@ -179,7 +235,7 @@ def compute_hourly_bg_change(current_bg, previous_bg):
     """
     if (type(current_bg) != tuple or type(previous_bg) != tuple):
         raise TypeError("current_bg and previous_bg must be tuple")
-    
+
     timediff_in_hour = abs(current_bg[1] - previous_bg[1]) / 60
 
     return int((current_bg[0] - previous_bg[0]) / timediff_in_hour)
@@ -202,11 +258,11 @@ INSULIN INFUSION SOLUTION: Obtain from pharmacy (1 unit Regular Human Insulin / 
 PRIMING: Before connecting, flush 20 cc infusion through all tubing.
 
 Reference:
-Shetty S, Inzucchi SE, Goldberg PA, Cooper D, Siegel MD, Honiden S. 
-Adapting to the new consensus guidelines for managing hyperglycemia 
-during critical illness: The Updated Yale Insulin Infusion Protocol. 
+Shetty S, Inzucchi SE, Goldberg PA, Cooper D, Siegel MD, Honiden S.
+Adapting to the new consensus guidelines for managing hyperglycemia
+during critical illness: The Updated Yale Insulin Infusion Protocol.
 Endocr Pract. 2012;18:363-370.
-<http://inpatient.aace.com/sites/all/files/Yale_IIP_MICU120-160_2011.pdf; 
+<http://inpatient.aace.com/sites/all/files/Yale_IIP_MICU120-160_2011.pdf;
 Accessed 06/28/2017>
 
     """

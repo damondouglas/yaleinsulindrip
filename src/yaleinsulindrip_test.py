@@ -11,9 +11,9 @@ def test_is_blood_glucose_target():
     assert yaleinsulindrip.is_blood_glucose_target(119) == False
     assert yaleinsulindrip.is_blood_glucose_target(161) == False
 
-def test_compute_initial():
-    assert yaleinsulindrip.compute_initial(350) == 3.5
-    assert yaleinsulindrip.compute_initial(274) == 2.5
+def test_compute_initial_insulin():
+    assert yaleinsulindrip.compute_initial_insulin(350) == 3.5
+    assert yaleinsulindrip.compute_initial_insulin(274) == 2.5
 
 def test_compute_hourly_bg_change():
     assert yaleinsulindrip.compute_hourly_bg_change(
