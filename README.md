@@ -89,3 +89,7 @@ Endocr Pract. 2012;18:363-370.
 Accessed 06/28/2017>
 
 _PDF can also be found here: https://github.com/damondouglas/yaleinsulindrip/files/1112949/Yale_IIP_MICU120-160_2011.pdf_
+
+# Errors/Issues
+
+[Report here](https://github.com/damondouglas/yaleinsulindrip/issues)
