@@ -1,7 +1,7 @@
 """
 Implementation of yale insulin infusion (YII) protocol.
 
-Note snomed codes used below:
+Note [snomed](http://browser.ihtsdotools.org/) codes used below:
 325064004  Insulin soluble human 100units/mL injection solution 10mL vial (product)
 258666001  Unit
 258949000  Unit/hour
@@ -25,11 +25,15 @@ def apply(input):
     """
     Method called by algorithmia platform
 
-    current_rate
-    current_bg
-    consecutive_bg_in_target_count
-    hourly_bg_change
-    show_notes
+    Parameter
+    =========
+    input : (dict) of algorithm variables:
+
+    current_rate: current insulin infusion rate (units/hr)
+    current_bg: current blood glucose level (mg/dL)
+    consecutive_bg_in_target_count: number of blood glucose measures continuously at target
+    hourly_bg_change: change in blood glucose level (mg/dL - hr)
+    show_notes: whether notes about the algorithm should be displayed
 
     """
     required_params = ['current_bg']
@@ -42,7 +46,7 @@ def apply(input):
     response = {}
     if 'show_notes' in input:
         response['notes'] = notes()
-    
+
     if 'current_rate' not in input:
         dose = compute_initial_insulin(current_bg)
         return {
@@ -51,13 +55,13 @@ def apply(input):
                 'frequency': 'once',
                 'dose': dose,
                 'uom': 258666001,
-                'route': 255560000  
+                'route': 255560000
             },
             'infusion': {
                 'product': 325064004,
                 'rate': dose,
-                'uom': 258949000, 
-                'route': 255560000  
+                'uom': 258949000,
+                'route': 255560000
             },
             'current_bg': current_bg,
             'at_target_bg': is_blood_glucose_target(current_bg),
@@ -65,14 +69,15 @@ def apply(input):
         }
 
     else:
-        required_params = ['hourly_bg_change','consecutive_bg_in_target_count']
+        required_params = ['hourly_bg_change','consecutive_bg_in_target_count', 'current_rate']
         for key in required_params:
             if key not in input:
                 raise AlgorithmError("required params: " + required_params)
+                
         current_rate = input['current_rate']
         consecutive_bg_in_target_count = input['consecutive_bg_in_target_count']
         hourly_bg_change = input['hourly_bg_change']
-        dose = compute_insulin(current_rate, current_bg, hourly_bg_change) 
+        dose = compute_insulin(current_rate, current_bg, hourly_bg_change)
 
         return {
             'current_bg': current_bg,
@@ -81,11 +86,11 @@ def apply(input):
             'infusion': {
                 'product': 325064004,
                 'rate': dose,
-                'uom': 258949000, 
-                'route': 255560000  
+                'uom': 258949000,
+                'route': 255560000
             },
         }
-    
+
     return response
 
 def round_nearest(x, a):
